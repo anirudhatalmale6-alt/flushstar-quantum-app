@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FlushStar Quantum 25 — App Demo</title>
+<meta name="description" content="Working demo of the FlushStar Quantum 25 companion app, running against a simulated unit.">
+<meta name="theme-color" content="#04070D">
+<link rel="icon" href="img/logo.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="demo-banner" id="demoBanner">
+  <span class="dot"></span>DEMO — simulated unit, no hardware connected
+  <button id="bannerHide" aria-label="Hide notice">&times;</button>
+</div>
+
+<div class="phone" id="phone">
+
+  <!-- ══ CONNECT ══════════════════════════════════════════════════ -->
+  <section class="screen is-active" id="s-connect">
+    <div class="connect-wrap">
+      <img src="img/logo.png" alt="FlushStar" class="brand-mark">
+      <p class="eyebrow">Quantum 25 &nbsp;/&nbsp; Companion</p>
+
+      <div class="radar" id="radar">
+        <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+        <div class="radar-core"></div>
+      </div>
+
+      <p class="scan-label" id="scanLabel">Searching for nearby systems</p>
+
+      <div class="device-list" id="deviceList"></div>
+
+      <button class="btn btn-ghost" id="rescanBtn" hidden>Search again</button>
+    </div>
+  </section>
+
+  <!-- ══ MAIN ═════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-main">
+
+    <header class="topbar">
+      <div class="topbar-id">
+        <span class="link-dot" id="linkDot"></span>
+        <div>
+          <strong id="unitName">QUANTUM 25</strong>
+          <span id="unitSerial">QS&#8209;0442</span>
+        </div>
+      </div>
+      <div class="topbar-power">
+        <span id="voltage">12.6V</span>
+        <button class="icon-btn" id="disconnectBtn" title="Disconnect">&#9211;</button>
+      </div>
+    </header>
+
+    <!-- ── Dashboard tab ── -->
+    <div class="tab is-active" id="t-dash">
+      <div class="status-card" id="statusCard">
+        <p class="status-label">System status</p>
+        <h1 class="status-value" id="statusValue">READY</h1>
+        <p class="status-sub" id="statusSub">All engines detected &middot; water supply OK</p>
+      </div>
+
+      <div class="engines" id="engines"></div>
+
+      <div class="stat-grid">
+        <div class="stat"><span class="stat-k">Last flush</span><b class="stat-v" id="lastFlush">—</b></div>
+        <div class="stat"><span class="stat-k">Total cycles</span><b class="stat-v" id="totalCycles">0</b></div>
+        <div class="stat"><span class="stat-k">Runtime</span><b class="stat-v" id="runtime">0h</b></div>
+        <div class="stat"><span class="stat-k">Next service</span><b class="stat-v" id="nextService">—</b></div>
+      </div>
+
+      <div class="alert" id="alertBox" hidden></div>
+
+      <button class="btn btn-primary btn-xl" id="startBtn">Start flush</button>
+      <p class="fineprint">Engine does not need to run. Boat in or out of the water.</p>
+    </div>
+
+    <!-- ── Running tab ── -->
+    <div class="tab" id="t-run">
+      <div class="run-head">
+        <p class="eyebrow" id="runStage">Purge</p>
+        <div class="run-clock"><span id="runElapsed">0:00</span><small id="runRemain">~4:10 left</small></div>
+      </div>
+
+      <div class="stage-rail" id="stageRail">
+        <div class="stage" data-stage="purge"><span></span>Purge</div>
+        <div class="stage" data-stage="flush"><span></span>Flush</div>
+        <div class="stage" data-stage="drain"><span></span>Drain</div>
+      </div>
+
+      <div class="run-engines" id="runEngines"></div>
+
+      <div class="gauges">
+        <div class="gauge"><span class="gauge-k">Pressure</span><b class="gauge-v" id="pressure">0.0</b><small>bar</small></div>
+        <div class="gauge"><span class="gauge-k">Flow</span><b class="gauge-v" id="flow">0.0</b><small>L/min</small></div>
+        <div class="gauge"><span class="gauge-k">Draw</span><b class="gauge-v" id="draw">0.0</b><small>A</small></div>
+      </div>
+
+      <button class="btn btn-danger" id="abortBtn">Abort cycle</button>
+    </div>
+
+    <!-- ── History tab ── -->
+    <div class="tab" id="t-hist">
+      <p class="tab-title">Flush history</p>
+      <div class="history" id="history"></div>
+    </div>
+
+    <!-- ── System tab ── -->
+    <div class="tab" id="t-sys">
+      <p class="tab-title">System</p>
+      <dl class="spec">
+        <div><dt>Model</dt><dd>Quantum 25</dd></div>
+        <div><dt>Serial</dt><dd>QS-0442</dd></div>
+        <div><dt>Firmware</dt><dd>1.4.2</dd></div>
+        <div><dt>Engines detected</dt><dd id="sysEngines">4</dd></div>
+        <div><dt>Supply</dt><dd>12VDC &middot; <span id="sysVolt">12.6V</span></dd></div>
+        <div><dt>Total cycles</dt><dd id="sysCycles">0</dd></div>
+        <div><dt>Runtime</dt><dd id="sysRuntime">0h</dd></div>
+        <div><dt>Warranty</dt><dd>3 years &middot; to Mar 2029</dd></div>
+      </dl>
+
+      <div class="sim">
+        <p class="sim-title">Demo controls</p>
+        <p class="sim-note">Not part of the real app. These let you see how it behaves without a machine in front of you.</p>
+
+        <label class="sim-row">
+          <span>Engines fitted</span>
+          <select id="simEngines">
+            <option>1</option><option>2</option><option selected>4</option><option>6</option>
+          </select>
+        </label>
+
+        <label class="sim-row">
+          <span>Next cycle outcome</span>
+          <select id="simOutcome">
+            <option value="ok" selected>Completes normally</option>
+            <option value="blockage">Blockage on one engine</option>
+            <option value="nowater">No water supply</option>
+          </select>
+        </label>
+
+        <label class="sim-row">
+          <span>Cycle speed</span>
+          <select id="simSpeed">
+            <option value="12" selected>Fast — for showing people</option>
+            <option value="1">Real time — 4 min 10 s</option>
+          </select>
+        </label>
+
+        <label class="sim-row">
+          <span>Service reminder due</span>
+          <input type="checkbox" id="simService">
+        </label>
+
+        <button class="btn btn-ghost btn-sm" id="simReset">Reset demo data</button>
+      </div>
+    </div>
+
+    <nav class="tabbar">
+      <button class="tab-btn is-active" data-tab="t-dash"><span>&#9678;</span>System</button>
+      <button class="tab-btn" data-tab="t-hist"><span>&#9776;</span>History</button>
+      <button class="tab-btn" data-tab="t-sys"><span>&#9881;</span>Settings</button>
+    </nav>
+
+  </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
