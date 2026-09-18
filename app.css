@@ -312,3 +312,42 @@ body{
   .status-value{font-size:38px}
   .stat-grid{grid-template-columns:1fr}
 }
+
+/* ── wash programs ─────────────────────────────────────────────── */
+.programs{border:1px solid var(--line);border-radius:var(--r);background:var(--steel);padding:13px 13px 12px}
+.programs-label{
+  font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--mute-2);margin-bottom:9px;
+}
+.program-row{display:flex;gap:7px}
+.prog{
+  flex:1;cursor:pointer;background:var(--steel-2);color:var(--mute);
+  border:1px solid var(--line);border-radius:var(--r);padding:10px 4px;
+  font:inherit;text-align:center;transition:border-color .15s,background .15s;
+}
+.prog b{
+  display:block;font-family:'Saira Condensed',sans-serif;font-size:19px;
+  line-height:1;letter-spacing:.03em;color:var(--ice);
+}
+.prog small{display:block;margin-top:4px;font:500 9px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase}
+.prog.on{border-color:var(--volt);background:rgba(46,155,255,.1)}
+.prog.on b{color:var(--volt-hot)}
+.prog.on small{color:var(--volt)}
+.program-detail{margin-top:10px;color:var(--mute-2);font-size:11.5px;line-height:1.5}
+
+/* ── water mode while flushing ─────────────────────────────────── */
+.flowmode{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border:1px solid var(--line-hot);border-radius:var(--r);
+  background:rgba(46,155,255,.07);padding:11px 13px;
+}
+.flowmode-now{display:flex;align-items:baseline;gap:9px}
+.flowmode-k{font:500 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.15em;text-transform:uppercase;color:var(--mute-2)}
+.flowmode-now b{font-family:'Saira Condensed',sans-serif;font-size:21px;letter-spacing:.05em;color:var(--volt-hot)}
+.flowmode-next{font:500 10.5px 'IBM Plex Mono',monospace;color:var(--mute-2)}
+/* Pulsating gets a pulse. Continuous deliberately does not. */
+.flowmode.pulse{animation:flowpulse 1.05s ease-in-out infinite}
+@keyframes flowpulse{
+  0%,100%{background:rgba(46,155,255,.07);border-color:var(--line-hot)}
+  50%{background:rgba(46,155,255,.17);border-color:var(--volt)}
+}

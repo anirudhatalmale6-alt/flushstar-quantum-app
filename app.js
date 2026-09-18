@@ -18,13 +18,14 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const STORE = 'flushstar.demo.v1';
 const defaults = () => ({
   engines: 4,
+  program: 'p5',
   cycles: 127,
   runtimeMin: 5240,
   history: [
-    { t: Date.now() - 864e5 * 2,  dur: 248, engines: 4, result: 'ok' },
-    { t: Date.now() - 864e5 * 5,  dur: 251, engines: 4, result: 'ok' },
-    { t: Date.now() - 864e5 * 9,  dur: 96,  engines: 4, result: 'abort' },
-    { t: Date.now() - 864e5 * 12, dur: 244, engines: 4, result: 'ok' },
+    { t: Date.now() - 864e5 * 2,  dur: 345, engines: 4, program: 'p5', result: 'ok' },
+    { t: Date.now() - 864e5 * 5,  dur: 465, engines: 4, program: 'p7', result: 'ok' },
+    { t: Date.now() - 864e5 * 9,  dur: 96,  engines: 4, program: 'p5', result: 'abort' },
+    { t: Date.now() - 864e5 * 12, dur: 585, engines: 4, program: 'p9', result: 'ok' },
   ],
 });
 
@@ -40,14 +41,53 @@ function save() {
 }
 
 /* ─── the seam: swap this for real BLE ────────────────────────── */
+
+/**
+ * The three wash cycles, as described by FlushStar:
+ *
+ *   "a standard 5min 60sec flush between pulsating and continuous water flow.
+ *    Or a 7min 60sec flush or 9min 60sec flush between the two."
+ *   "All of those with pre soak the motor and have a continuous water flow /
+ *    pulsating water flow for all the flushes."
+ *
+ * Read as: three programs of 5, 7 and 9 minutes; each one pre-soaks the motor
+ * first, then flushes for the chosen length while the water alternates between
+ * pulsating and continuous every 60 seconds.
+ *
+ * TO CONFIRM WITH THEM:
+ *   - the pre-soak length (45s is a placeholder, they did not give one)
+ *   - whether the flush opens on pulsating or continuous
+ *   - whether the program time is the whole cycle or the time per engine
+ *   - whether anything happens after the flush, e.g. a drain
+ */
+const PRESOAK_SECS   = 45;   // placeholder — not supplied
+const ALTERNATE_SECS = 60;   // "60sec ... between pulsating and continuous"
+
+const PROGRAMS = [
+  { id: 'p5', label: '5 min',  mins: 5, note: 'Standard' },
+  { id: 'p7', label: '7 min',  mins: 7, note: 'Longer'   },
+  { id: 'p9', label: '9 min',  mins: 9, note: 'Deepest'  },
+];
+
 const Unit = {
-  // Stage lengths in seconds. Real figures TBC against the hardware.
-  stages: [
-    { key: 'purge', label: 'Purge', secs: 45 },
-    { key: 'flush', label: 'Flush', secs: 150 },
-    { key: 'drain', label: 'Drain', secs: 55 },
-  ],
-  totalSecs() { return this.stages.reduce((n, s) => n + s.secs, 0); },
+  program(id) {
+    return PROGRAMS.find(p => p.id === id) || PROGRAMS[0];
+  },
+  stages(id) {
+    const p = this.program(id);
+    return [
+      { key: 'presoak', label: 'Pre-soak', secs: PRESOAK_SECS },
+      { key: 'flush',   label: 'Flush',    secs: p.mins * 60 },
+    ];
+  },
+  totalSecs(id) {
+    return this.stages(id).reduce((n, s) => n + s.secs, 0);
+  },
+  /** Which water mode the flush is in, this many seconds into the flush. */
+  flowMode(secsIntoFlush) {
+    return Math.floor(secsIntoFlush / ALTERNATE_SECS) % 2 === 0
+      ? 'Pulsating' : 'Continuous';
+  },
 };
 
 /* ─── helpers ─────────────────────────────────────────────────── */
@@ -142,8 +182,30 @@ function render() {
     box.hidden = true;
   }
 
+  renderPrograms();
   renderHistory();
   setStatus('ready');
+}
+
+function renderPrograms() {
+  const row = $('#programRow');
+  row.innerHTML = PROGRAMS.map(p => `
+    <button class="prog ${p.id === state.program ? 'on' : ''}" data-prog="${p.id}">
+      <b>${p.label}</b><small>${p.note}</small>
+    </button>`).join('');
+
+  $$('.prog', row).forEach(b => b.addEventListener('click', () => {
+    if (running) return;
+    state.program = b.dataset.prog;
+    save();
+    renderPrograms();
+  }));
+
+  const p = Unit.program(state.program);
+  $('#programDetail').textContent =
+    `Pre-soak, then ${p.mins} minutes alternating between pulsating and `
+    + `continuous water every ${ALTERNATE_SECS} seconds. `
+    + `About ${mmss(Unit.totalSecs(state.program))} in total.`;
 }
 
 function setStatus(mode, sub) {
@@ -171,7 +233,7 @@ function renderHistory() {
     const cls = h.result === 'ok' ? '' : (h.result === 'abort' ? 'abort' : 'err');
     const tag = h.result === 'ok' ? 'Complete' : (h.result === 'abort' ? 'Aborted' : 'Fault');
     return `<div class="h-row ${cls}">
-      <span class="h-main"><b>${dateLabel(h.t)}</b><small>${mmss(h.dur)} · ${h.engines} engines</small></span>
+      <span class="h-main"><b>${dateLabel(h.t)}</b><small>${Unit.program(h.program).label} · ${mmss(h.dur)} · ${h.engines} engines</small></span>
       <span class="h-res">${tag}</span>
     </div>`;
   }).join('');
@@ -213,7 +275,9 @@ function startCycle() {
     return;
   }
 
-  const total = Unit.totalSecs();
+  const prog   = Unit.program(state.program);
+  const stages = Unit.stages(state.program);
+  const total  = Unit.totalSecs(state.program);
   timer = setInterval(() => {
     const el = ((Date.now() - t0) / 1000) * speed;
     if (el >= total) return finishCycle();
@@ -222,29 +286,51 @@ function startCycle() {
     $('#runRemain').textContent  = `~${mmss(total - el)} left`;
 
     // stage rail
-    let acc = 0, current = Unit.stages[0];
-    for (const s of Unit.stages) {
-      const within = el >= acc && el < acc + s.secs;
-      const done = el >= acc + s.secs;
-      const node = $(`.stage[data-stage="${s.key}"]`);
-      node.classList.toggle('on', within);
-      node.classList.toggle('done', done);
-      if (within) current = s;
-      acc += s.secs;
+    let acc = 0, current = stages[0];
+    for (const st of stages) {
+      const within = el >= acc && el < acc + st.secs;
+      const done = el >= acc + st.secs;
+      const node = $(`.stage[data-stage="${st.key}"]`);
+      if (node) {
+        node.classList.toggle('on', within);
+        node.classList.toggle('done', done);
+      }
+      if (within) current = st;
+      acc += st.secs;
     }
     $('#runStage').textContent = current.label;
 
-    // gauges — idle during purge, working during flush, falling away in drain
+    // Water alternates between pulsating and continuous through the flush.
     const phase = current.key;
-    $('#pressure').textContent = (phase === 'flush' ? jitter(2.6, .3) : phase === 'purge' ? jitter(1.1, .2) : jitter(0.4, .2)).toFixed(1);
-    $('#flow').textContent     = (phase === 'flush' ? jitter(11.5, 1.2) : phase === 'purge' ? jitter(6, 1) : jitter(1.5, .6)).toFixed(1);
-    $('#draw').textContent     = (phase === 'drain' ? jitter(1.2, .2) : jitter(3.4, .4)).toFixed(1);
+    const inFlush = phase === 'flush';
+    const box = $('#flowMode');
+    if (inFlush) {
+      const intoFlush = el - PRESOAK_SECS;
+      const mode = Unit.flowMode(intoFlush);
+      box.hidden = false;
+      box.classList.toggle('pulse', mode === 'Pulsating');
+      $('#flowModeName').textContent = mode;
+      $('#flowModeIn').textContent =
+        Math.max(0, Math.ceil(ALTERNATE_SECS - (intoFlush % ALTERNATE_SECS)));
+      // Pulsating swings the pressure about; continuous holds steady.
+      $('#pressure').textContent = (mode === 'Pulsating' ? jitter(2.6, 1.5) : jitter(2.7, .18)).toFixed(1);
+      $('#flow').textContent     = (mode === 'Pulsating' ? jitter(9.5, 5.0) : jitter(11.8, .5)).toFixed(1);
+      $('#draw').textContent     = (mode === 'Pulsating' ? jitter(3.9, .7) : jitter(3.3, .25)).toFixed(1);
+    } else {
+      box.hidden = true;
+      // Pre-soak: water in, sitting on the motor, barely moving.
+      $('#pressure').textContent = jitter(1.1, .2).toFixed(1);
+      $('#flow').textContent     = jitter(4.5, .8).toFixed(1);
+      $('#draw').textContent     = jitter(2.2, .3).toFixed(1);
+    }
 
-    // engines run in sequence, not together — one water supply
-    const per = total / n;
+    // Engines run in sequence, not together — there is one water supply. The
+    // pre-soak is shared, so their progress only starts once the flush does.
+    const flushSecs = total - PRESOAK_SECS;
+    const per = flushSecs / n;
     for (let i = 0; i < n; i++) {
       const re = $(`#re${i}`), fill = $('.re-fill', re), lab = $('small', re);
-      const p = Math.max(0, Math.min(1, (el - i * per) / per));
+      const p = Math.max(0, Math.min(1, (el - PRESOAK_SECS - i * per) / per));
 
       if (i === failAt && p > 0.45) {
         clearInterval(timer);
@@ -257,14 +343,20 @@ function startCycle() {
   }, 250);
 }
 
-function stopTimer() { clearInterval(timer); timer = null; running = false; }
+function stopTimer() {
+  clearInterval(timer);
+  timer = null;
+  running = false;
+  const box = $('#flowMode');
+  if (box) box.hidden = true;
+}
 
 function finishCycle() {
   stopTimer();
-  const dur = Math.round(Unit.totalSecs());
+  const dur = Math.round(Unit.totalSecs(state.program));
   state.cycles += 1;
   state.runtimeMin += Math.round(dur / 60);
-  state.history.unshift({ t: Date.now(), dur, engines: state.engines, result: 'ok' });
+  state.history.unshift({ t: Date.now(), dur, engines: state.engines, program: state.program, result: 'ok' });
   state.history = state.history.slice(0, 25);
   save();
   $('.tabbar').classList.remove('hidden');
@@ -277,7 +369,7 @@ function failCycle(msg, engIdx) {
   stopTimer();
   faultEngine = engIdx;
   const dur = Math.round(((Date.now() - t0) / 1000) * speed);
-  state.history.unshift({ t: Date.now(), dur, engines: state.engines, result: 'fault' });
+  state.history.unshift({ t: Date.now(), dur, engines: state.engines, program: state.program, result: 'fault' });
   state.history = state.history.slice(0, 25);
   save();
 
@@ -301,7 +393,7 @@ function abortCycle(silent) {
   if (!running) return;
   stopTimer();
   const dur = Math.round(((Date.now() - t0) / 1000) * speed);
-  state.history.unshift({ t: Date.now(), dur, engines: state.engines, result: 'abort' });
+  state.history.unshift({ t: Date.now(), dur, engines: state.engines, program: state.program, result: 'abort' });
   state.history = state.history.slice(0, 25);
   save();
   $('.tabbar').classList.remove('hidden');

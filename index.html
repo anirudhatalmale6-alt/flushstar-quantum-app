@@ -69,6 +69,12 @@
 
       <div class="engines" id="engines"></div>
 
+      <div class="programs">
+        <p class="programs-label">Wash cycle</p>
+        <div class="program-row" id="programRow"></div>
+        <p class="program-detail" id="programDetail"></p>
+      </div>
+
       <div class="stat-grid">
         <div class="stat"><span class="stat-k">Last flush</span><b class="stat-v" id="lastFlush">—</b></div>
         <div class="stat"><span class="stat-k">Total cycles</span><b class="stat-v" id="totalCycles">0</b></div>
@@ -90,9 +96,16 @@
       </div>
 
       <div class="stage-rail" id="stageRail">
-        <div class="stage" data-stage="purge"><span></span>Purge</div>
+        <div class="stage" data-stage="presoak"><span></span>Pre-soak</div>
         <div class="stage" data-stage="flush"><span></span>Flush</div>
-        <div class="stage" data-stage="drain"><span></span>Drain</div>
+      </div>
+
+      <div class="flowmode" id="flowMode" hidden>
+        <div class="flowmode-now">
+          <span class="flowmode-k">Water</span>
+          <b id="flowModeName">Pulsating</b>
+        </div>
+        <div class="flowmode-next">switches in <span id="flowModeIn">60</span>s</div>
       </div>
 
       <div class="run-engines" id="runEngines"></div>
